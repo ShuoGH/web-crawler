@@ -7,6 +7,6 @@ File Catalog:
     - There are some bugs existing in this demo. As you scrape the images, it will reach the max retrival and throw the error. I haven't found a better way to solve this problem.
 - 
 
-Notes are recorded in my github [pages](shuogh.github.io):
-- 
+Notes are recorded in my github [pages](https://shuogh.github.io):
+- [Error met in the programming](https://shuogh.github.io/2019/06/13/Error-Met-in-First-Crawler-Demo/) 
 
