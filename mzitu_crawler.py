@@ -4,8 +4,10 @@ from time import sleep
 import os
 import random
 from fake_useragent import UserAgent
+import json
 
 IMAGE_PATH = os.getcwd() + '/images/'
+ip_random = -1
 
 
 def header(fake_ua, referer):
@@ -20,13 +22,29 @@ def header(fake_ua, referer):
     return headers
 
 
+def get_proxie(random_number):
+    with open('/Users/shuo/Desktop/code/webCrawler/ip_mzitu.txt', 'r') as file:
+        ip_list = json.load(file)
+        if random_number == -1:
+            random_number = random.randint(0, len(ip_list) - 1)
+        ip_info = ip_list[random_number]
+        ip_url_next = '://' + ip_info['address'] + ':' + ip_info['port']
+        proxies = {'http': 'http' + ip_url_next}
+        return random_number, proxies
+
+
 def request_page(pageNum, fake_ua, referer):
     '''
+    The ip can be changed.
     Get the certain page information
     '''
+    proxies = {
+        "http": "http://122.193.246.129:9999"
+    }
     baseUrl = 'https://www.mzitu.com/page/{}/'.format(pageNum)
 
-    r = requests.get(baseUrl, headers=header(fake_ua, referer))
+    r = requests.get(baseUrl, headers=header(
+        fake_ua, referer), proxies=proxies)
     print(r)  # check the response
     return r
 
@@ -58,10 +76,35 @@ def get_images(blog_url, referer):
     # ---- Every time when choosing girl, randomly choose one useragent ----
     fake_ua = UserAgent()
     user_agent = fake_ua.random
+    # ---- Randomly choose the proxies ----
+    global ip_random
+    ip_rand, proxies = get_proxie(ip_random)
 
-    blog_first_r = requests.get(
-        (blog_url), headers=header(user_agent, referer))
-    print(blog_first_r)
+    try:
+        blog_first_r = requests.get(
+            (blog_url), headers=header(user_agent, referer), proxies=proxies)
+        # print("first try for this girl: {}, type{}".format(
+        #     blog_first_r, type(blog_first_r)))
+        response_status_code = 200
+    except:
+        print("not successful for this ip {}".format(proxies["http"]))
+        n = 1
+        response_status_code = 500
+    while response_status_code != 200:
+        ip_random = -1
+        ip_rand, proxies = get_proxie(ip_random)
+        print("try another proxies {}".format(proxies["http"]))
+        try:
+            print("another try for this girl: {}".format(blog_first_r))
+            blog_first_r = requests.get(
+                (blog_url), headers=header(user_agent, referer), proxies=proxies)
+            response_status_code = 200
+        except:
+            print("not successful for this ip {}".format(proxies["http"]))
+            response_status_code = 500
+            n += 1
+            if n >= 50:
+                raise Exception("Try enough unavailable ip address")
     soup = BeautifulSoup(blog_first_r.text, features="html.parser")
 
     # ---- get the number of images ----
@@ -90,7 +133,7 @@ def get_images(blog_url, referer):
     f = open(pic_name, 'wb')
     print("accessing {}".format(pic_src))
     f.write(requests.get(pic_src, headers=header(
-        user_agent, image_referer)).content)
+        user_agent, image_referer), proxies=proxies).content)
     f.close()
     print("finish the first image : {}".format(pic_name))
 
@@ -98,8 +141,28 @@ def get_images(blog_url, referer):
         # setting the time gap is important, or it will meet the Max retries exceeded with url error
         sleep(random_sleep_time())
         pic_link = blog_url + '/' + str(pic_index)
-        pic_cur_page = requests.get(
-            pic_link, headers=header(user_agent, image_referer))
+        try:
+            pic_cur_page = requests.get(pic_link, headers=header(
+                user_agent, image_referer), proxies=proxies)
+            response_status_code = 200
+        except:
+            print("something wrong with this pic {}".format(pic_link))
+            response_status_code = 500
+        while response_status_code != 200:
+            ip_random = -1
+            ip_rand, proxies = get_proxie(ip_random)
+            print("try another proxies {}".format(proxies["http"]))
+            try:
+                print("another try for this pic {}".format(pic_link))
+                pic_cur_page = requests.get(pic_link, headers=header(
+                    user_agent, image_referer), proxies=proxies)
+                response_status_code = 200
+            except:
+                print("not successful for this ip {}".format(proxies["http"]))
+                response_status_code = 500
+                n += 1
+                if n >= 50:
+                    raise Exception("Try enough unavailable ip address")
         soup = BeautifulSoup(pic_cur_page.text, features="html.parser")
         pic_src = soup.find('div', 'main-image').find('img')['src']
         pic_name = pic_src.split('/')[-1]
@@ -107,7 +170,7 @@ def get_images(blog_url, referer):
         f = open(pic_name, 'wb')
         print("accessing {}".format(pic_src))
         f.write(requests.get(pic_src, headers=header(
-            user_agent, image_referer)).content)
+            user_agent, image_referer), proxies=proxies).content)
         f.close()
         image_referer = pic_link  # update the referer
         print("finish {} image : {}".format(pic_index, pic_name))
@@ -122,7 +185,7 @@ if __name__ == "__main__":
     header_referer = "https://www.mzitu.com/"
 
     # by setting the range, can scrape the images in the first n pages.
-    for i in range(3, 4):
+    for i in range(1, 4):
         print("accessing the {} page...".format(i))
         fake_ua = UserAgent()
         user_agent = fake_ua.random

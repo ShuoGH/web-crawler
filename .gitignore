@@ -1,2 +1,4 @@
 images/
 .DS_Store
+test_ip.py
+*.txt
